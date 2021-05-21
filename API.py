@@ -21,7 +21,7 @@ class CheckIfRegistered(Resource): # POST
             query = "SELECT iban FROM accounts WHERE iban = %s;"
             cursor.execute(query, dataInput)
             dataRecieved = cursor.fetchone()
-            if(data):
+            if(dataRecieved):
                 return {}, 208
             else :
                 return {}, 433
