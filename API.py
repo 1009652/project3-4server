@@ -17,9 +17,10 @@ class CheckIfRegistered(Resource): # POST
         parser.add_argument('IBAN', required=True)
         args = parser.parse_args()
         try:
-            data = str(args.get('IBAN'))
+            dataInput = str(args.get('IBAN'))
             query = "SELECT iban FROM accounts WHERE iban = %s;"
-            cursor.execute(query, data)
+            cursor.execute(query, dataInput)
+            dataRecieved = cursor.fetchone()
             if(data):
                 return {}, 208
             else :
