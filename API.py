@@ -36,7 +36,7 @@ class CheckAttempts(Resource): # POST
         args = parser.parse_args()
         try:
             dataInput = str(args.get('IBAN'))
-            query = "SELECT noOfTries FROM card WHERE cardID = (SELECT cardID FROM accounts WHERE iban = %s"
+            query = "SELECT noOfTries FROM card WHERE cardID = (SELECT cardID FROM accounts WHERE iban = %s);"
             cursor.execute(query, dataInput)
             dataRecieved = 3 - int(cursor.fetchone())
             return {'data': dataRecieved}, 208
