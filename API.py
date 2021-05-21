@@ -29,21 +29,23 @@ class CheckIfRegistered(Resource): # POST
             return {'error': 'no data available'}, 400
     pass
 
-class Withdraw2(Resource): # POST
+class CheckAttempts(Resource): # POST
     def post(self):
         parser = reqparse.RequestParser() 
-        parser.add_argument('name', required=True)
+        parser.add_argument('IBAN', required=True)
         args = parser.parse_args()
         try:
-            # do stuff here
-            name = "Hello " + str(args.get('name'))
-            return {'data' : name}, 200 # OK
+            dataInput = str(args.get('IBAN'))
+            query = "SELECT noOfTries FROM card WHERE cardID = (SELECT cardID FROM accounts WHERE iban = %s"
+            cursor.execute(query, dataInput)
+            dataRecieved = 3 - int(cursor.fetchone())
+            return {'data': dataRecieved}, 208
         except:
             return {'error': 'invalid input'}, 400 # Bad request
     pass
     
 api.add_resource(CheckIfRegistered, '/checkIfRegistered') 
-api.add_resource(Withdraw2, '/withdrawPost') 
+api.add_resource(CheckAttempts, '/checkAttempts') 
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8050) 
