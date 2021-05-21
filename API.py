@@ -22,7 +22,7 @@ class CheckIfRegistered(Resource): # POST
             cursor.execute(query, dataInput)
             dataRecieved = cursor.fetchone()
             if(dataRecieved):
-                return {}, 208
+                return {'data':dataRecieved}, 208
             else :
                 return {}, 433
         except:
