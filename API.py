@@ -20,13 +20,19 @@ class CheckIfRegistered(Resource): # POST
             dataInput = str(args.get('IBAN'))
             query = "SELECT firstName FROM customer WHERE customerID = (SELECT customerID FROM accounts WHERE iban = %s);"
             cursor.execute(query, dataInput)
-            dataRecieved = cursor.fetchone()
-            if(dataRecieved):
-                return {'data': dataRecieved}, 208
+            iban = cursor.fetchone()
+            if(iban):
+                query = "SELECT vallid FROM card WHERE cardID = (SELECT cardID FROM accounts WHERE iban = %s);"
+                cursor.execute(query, dataInput)
+                cardIsVallid = cursor.fetchone()[0]
+                if(cardIsVallid):
+                    return {}, 208
+                else :
+                    return {}, 434
             else :
                 return {}, 433
         except:
-            return {'error': 'no data available'}, 400
+            return {'error': 'json wrong'}, 432
     pass
 
 class CheckAttempts(Resource): # POST
@@ -38,15 +44,54 @@ class CheckAttempts(Resource): # POST
             dataInput = str(args.get('IBAN'))
             query = "SELECT noOfTries FROM card WHERE cardID = (SELECT cardID FROM accounts WHERE iban = %s);"
             cursor.execute(query, dataInput)
-            dataRecieved = cursor.fetchone()
-            triesLeft = 3 - int(dataRecieved[0])
+            noOfTries = cursor.fetchone()
+            triesLeft = 3 - int(noOfTries[0])
             return {'data': triesLeft}, 208
         except:
-            return {'error': 'invalid input'}, 400 # Bad request
+            return {'error': 'json wrong'}, 432 # Bad request
     pass
+
+class Withdraw(Resource): # POST
+    def post(self):
+        parser = reqparse.RequestParser() 
+        parser.add_argument('IBAN', required=True)
+        parser.add_argument('amount', required = True)
+        args = parser.parse_args()
+        try:
+            dataInput = str(args.get('IBAN'))
+            query = "SELECT balance FROM accounts WHERE iban = %s;"
+            cursor.execute(query, dataInput)
+            oldAmount = int(cursor.fetchone()[0])
+            newAmount = oldAmount - int(args.get('amount'))
+            query = "UPDATE accounts SET balance = %s WHERE iban = %s;"
+            dataInputTuple = (newAmount, dataInput)
+            cursor.execute(query, dataInputTuple)
+            db.commit()
+            return {}, 208
+        except:
+            return {'error': 'json wrong'}, 432 # Bad request
+
     
+class CheckBalance(Resource): # POST
+    def post(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument('IBAN', required=True)
+        args = parser.parse_args()
+        try:
+            dataInput = str(args.get('IBAN'))
+            query = "SELECT balance FROM accounts WHERE iban = %s;"
+            cursor.execute(query, dataInput)
+            amount = int(cursor.fetchone()[0])
+            return {'data': amount}, 208
+        except:
+            return {'error': 'json wrong'}, 432 # Bad request
+
+
+
 api.add_resource(CheckIfRegistered, '/checkIfRegistered') 
 api.add_resource(CheckAttempts, '/checkAttempts') 
+api.add_resource(Withdraw, '/withdraw')
+api.add_resource(CheckBalance, '/checkBalance')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8050) 
