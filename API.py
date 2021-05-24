@@ -22,7 +22,7 @@ class CheckIfRegistered(Resource): # POST
             cursor.execute(query, dataInput)
             dataRecieved = cursor.fetchone()
             if(dataRecieved):
-                return {'data':dataRecieved}, 208
+                return {'data': dataRecieved}, 208
             else :
                 return {}, 433
         except:
@@ -38,8 +38,9 @@ class CheckAttempts(Resource): # POST
             dataInput = str(args.get('IBAN'))
             query = "SELECT noOfTries FROM card WHERE cardID = (SELECT cardID FROM accounts WHERE iban = %s);"
             cursor.execute(query, dataInput)
-            dataRecieved = 3 - int(cursor.fetchone())
-            return {'data': dataRecieved}, 208
+            dataRecieved = cursor.fetchone()
+            triesLeft = 3 - int(dataRecieved[0])
+            return {'data': triesLeft}, 208
         except:
             return {'error': 'invalid input'}, 400 # Bad request
     pass
