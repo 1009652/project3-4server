@@ -144,7 +144,7 @@ class CheckBalance(Resource): # POST
         args = parser.parse_args()
         try:
             dataInput = str(args.get('IBAN'))
-            
+
             if isLoggedIn(dataInput):
                 query = "SELECT balance FROM accounts WHERE iban = %s;"
                 cursor.execute(query, dataInput)
@@ -179,4 +179,4 @@ api.add_resource(CheckBalance, '/checkBalance')
 api.add_resource(Logout, '/logout')
 
 if __name__ == '__main__':
-    app.run(debug=True) 
+    app.run(host='0.0.0.0', port='8050', debug=True) 
