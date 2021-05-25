@@ -11,6 +11,17 @@ db = MySQLdb.connect(host="remotemysql.com", user="5J9rC1RF8E", passwd="U8IIWXIJ
 
 cursor = db.cursor()
 
+
+def isAccountValid(dataInput):
+    query = "SELECT valid FROM card WHERE cardID = (SELECT cardID FROM accounts WHERE iban = %s);"
+    cursor.execute(query, dataInput)
+    return cursor.fetchone()[0]
+
+def isLoggedIn(dataInput):
+    query = "SELECT login FROM accounts WHERE iban = %s;"
+    cursor.execute(query, dataInput)
+    return cursor.fetchone()[0]
+
 class CheckIfRegistered(Resource): # POST
     def post(self):
         parser = reqparse.RequestParser()
@@ -21,19 +32,61 @@ class CheckIfRegistered(Resource): # POST
             query = "SELECT firstName FROM customer WHERE customerID = (SELECT customerID FROM accounts WHERE iban = %s);"
             cursor.execute(query, dataInput)
             iban = cursor.fetchone()
+
             if(iban):
-                query = "SELECT vallid FROM card WHERE cardID = (SELECT cardID FROM accounts WHERE iban = %s);"
-                cursor.execute(query, dataInput)
-                cardIsVallid = cursor.fetchone()[0]
-                if(cardIsVallid):
+                if(isAccountValid(dataInput)):
                     return {}, 208
                 else :
-                    return {}, 434
+                    return {'error':'account blocked'}, 434
             else :
-                return {}, 433
+                return {'error':'account not registered'}, 433
+
         except:
             return {'error': 'json wrong'}, 432
-    pass
+
+class Login(Resource):
+    def post(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument('IBAN', required=True)
+        parser.add_argument('pincode', required=True)
+        args = parser.parse_args()
+        try:
+            dataInput = str(args.get('IBAN'))
+
+            if isAccountValid(dataInput):
+                query = "SELECT pinCode FROM card WHERE cardID = (SELECT cardID FROM accounts WHERE iban = %s);"
+                cursor.execute(query, dataInput)
+                pinCodeData = cursor.fetchone()
+
+                if(pinCodeData[0] == str(args.get('pincode'))):
+                    query = "UPDATE accounts SET login = 1 WHERE iban = %s;"
+                    cursor.execute(query, dataInput)
+                    db.commit()
+                    query = "UPDATE card SET noOfTries = 0 WHERE cardID = (SELECT cardID FROM accounts WHERE iban = %s);"
+                    cursor.execute(query, dataInput)
+                    db.commit()
+                    return {}, 208
+                else:
+                    query = "SELECT noOfTries FROM card WHERE cardID = (SELECT cardID FROM accounts WHERE iban = %s);"
+                    cursor.execute(query, dataInput)
+                    noOfTries = int(cursor.fetchone()[0])
+                    noOfTries += 1
+                    print(noOfTries)
+                    dataInputTuple = (noOfTries, dataInput)
+                    if noOfTries >= 3:
+                        query = "UPDATE card SET noOfTries = %s, valid = 0 WHERE cardID = (SELECT cardID FROM accounts WHERE iban = %s);"
+                        cursor.execute(query, dataInputTuple)
+                        db.commit()
+                        return {'error': 'account blocked'}, 434
+                    else :
+                        query = "UPDATE card SET noOfTries = %s WHERE cardID = (SELECT cardID FROM accounts WHERE iban = %s);"
+                        cursor.execute(query, dataInputTuple)
+                        db.commit()
+                        return {'error': 'pincode wrong'}, 435
+            else :
+                return {'error': 'account blocked'}, 434
+        except:
+            return {'error': 'json wrong'}, 432
 
 class CheckAttempts(Resource): # POST
     def post(self):
@@ -44,12 +97,11 @@ class CheckAttempts(Resource): # POST
             dataInput = str(args.get('IBAN'))
             query = "SELECT noOfTries FROM card WHERE cardID = (SELECT cardID FROM accounts WHERE iban = %s);"
             cursor.execute(query, dataInput)
-            noOfTries = cursor.fetchone()
-            triesLeft = 3 - int(noOfTries[0])
+            noOfTries = int(cursor.fetchone()[0])
+            triesLeft = 3 - noOfTries
             return {'data': triesLeft}, 208
         except:
             return {'error': 'json wrong'}, 432 # Bad request
-    pass
 
 class Withdraw(Resource): # POST
     def post(self):
@@ -58,16 +110,29 @@ class Withdraw(Resource): # POST
         parser.add_argument('amount', required = True)
         args = parser.parse_args()
         try:
+            if int(args.get('amount')) <= 0:
+                raise ValueError()
+            
             dataInput = str(args.get('IBAN'))
-            query = "SELECT balance FROM accounts WHERE iban = %s;"
-            cursor.execute(query, dataInput)
-            oldAmount = int(cursor.fetchone()[0])
-            newAmount = oldAmount - int(args.get('amount'))
-            query = "UPDATE accounts SET balance = %s WHERE iban = %s;"
-            dataInputTuple = (newAmount, dataInput)
-            cursor.execute(query, dataInputTuple)
-            db.commit()
-            return {}, 208
+
+            if isLoggedIn(dataInput):
+                query = "SELECT balance FROM accounts WHERE iban = %s;"
+                cursor.execute(query, dataInput)
+                oldAmount = int(cursor.fetchone()[0])
+                newAmount = oldAmount - int(args.get('amount'))
+
+                if newAmount < 0:
+                    return {'error': 'balance too low'}, 437
+
+                
+                query = "UPDATE accounts SET balance = %s WHERE iban = %s;"
+                dataInputTuple = (newAmount, dataInput)
+                cursor.execute(query, dataInputTuple)
+                db.commit()
+                return {}, 208
+            else:
+                return {'error': 'not logged in'}, 436
+            
         except:
             return {'error': 'json wrong'}, 432 # Bad request
 
@@ -79,19 +144,39 @@ class CheckBalance(Resource): # POST
         args = parser.parse_args()
         try:
             dataInput = str(args.get('IBAN'))
-            query = "SELECT balance FROM accounts WHERE iban = %s;"
+            
+            if isLoggedIn(dataInput):
+                query = "SELECT balance FROM accounts WHERE iban = %s;"
+                cursor.execute(query, dataInput)
+                amount = int(cursor.fetchone()[0])
+                return {'data': amount}, 208
+            else :
+                return {'error': 'not logged in'}, 436
+        except:
+            return {'error': 'json wrong'}, 432 # Bad request
+
+class Logout(Resource): # POST
+    def post(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument('IBAN', required=True)
+        args = parser.parse_args()
+        try:
+            dataInput = str(args.get('IBAN'))
+            query = "UPDATE accounts SET login = 0 WHERE iban = %s;"
             cursor.execute(query, dataInput)
-            amount = int(cursor.fetchone()[0])
-            return {'data': amount}, 208
+            db.commit()
+            return {}, 208
         except:
             return {'error': 'json wrong'}, 432 # Bad request
 
 
 
 api.add_resource(CheckIfRegistered, '/checkIfRegistered') 
+api.add_resource(Login, '/login')
 api.add_resource(CheckAttempts, '/checkAttempts') 
 api.add_resource(Withdraw, '/withdraw')
 api.add_resource(CheckBalance, '/checkBalance')
+api.add_resource(Logout, '/logout')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8050) 
+    app.run(debug=True) 
