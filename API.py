@@ -28,11 +28,11 @@ def checkLoginTime(key):
 
         if datetime.datetime.now() < logoutTime:
             addLoginTime(key, datetime.datetime.now())
-        else:
-            del loginTime[key]
-            query = "UPDATE accounts SET login = 0 WHERE iban = %s;"
-            cursor.execute(query, key)
-            db.commit()
+        #else:
+            #del loginTime[key]
+            #query = "UPDATE accounts SET login = 0 WHERE iban = %s;"
+            #cursor.execute(query, key)
+            #db.commit()
 
 
 
@@ -60,11 +60,11 @@ class CheckIfRegistered(Resource): # POST
 
             if(iban):
                 if(isAccountValid(dataInput)):
-                    return {}, 208
+                    return 'OK', 208
                 else :
-                    return {'error':'account blocked'}, 434
+                    return 'account blocked', 434
             else :
-                return {'error':'account not registered'}, 433
+                return 'account not registered', 433
 
         except:
             return {'error': 'json wrong'}, 432
@@ -210,4 +210,4 @@ api.add_resource(CheckBalance, '/checkBalance')
 api.add_resource(Logout, '/logout')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8050, debug=True)
+    app.run(debug=True)
