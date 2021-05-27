@@ -3,6 +3,7 @@ from flask_restful import Resource, Api, reqparse
 import pymysql
 pymysql.install_as_MySQLdb()
 import MySQLdb
+import datetime
 
 app = Flask(__name__)
 api = Api(app)
@@ -10,6 +11,29 @@ api = Api(app)
 db = MySQLdb.connect(host="remotemysql.com", user="5J9rC1RF8E", passwd="U8IIWXIJZT", db="5J9rC1RF8E")
 
 cursor = db.cursor()
+
+loginTime = {}
+
+def addLoginTime(key, value):
+    loginTime[key] = value
+
+def checkLoginTime(key):
+    if(loginTime.get(key)):
+        print('here')
+        logoutTime = loginTime.get(key) + datetime.timedelta(minutes = 2)
+        print('login:')
+        print(logoutTime)
+        print('current login:')
+        print(datetime.datetime.now())
+
+        if datetime.datetime.now() < logoutTime:
+            addLoginTime(key, datetime.datetime.now())
+        else:
+            del loginTime[key]
+            query = "UPDATE accounts SET login = 0 WHERE iban = %s;"
+            cursor.execute(query, key)
+            db.commit()
+
 
 
 def isAccountValid(dataInput):
@@ -29,6 +53,7 @@ class CheckIfRegistered(Resource): # POST
         args = parser.parse_args()
         try:
             dataInput = str(args.get('IBAN'))
+            checkLoginTime(dataInput)
             query = "SELECT firstName FROM customer WHERE customerID = (SELECT customerID FROM accounts WHERE iban = %s);"
             cursor.execute(query, dataInput)
             iban = cursor.fetchone()
@@ -52,6 +77,7 @@ class Login(Resource):
         args = parser.parse_args()
         try:
             dataInput = str(args.get('IBAN'))
+            checkLoginTime(dataInput)
 
             if isAccountValid(dataInput):
                 query = "SELECT pinCode FROM card WHERE cardID = (SELECT cardID FROM accounts WHERE iban = %s);"
@@ -65,6 +91,7 @@ class Login(Resource):
                     query = "UPDATE card SET noOfTries = 0 WHERE cardID = (SELECT cardID FROM accounts WHERE iban = %s);"
                     cursor.execute(query, dataInput)
                     db.commit()
+                    addLoginTime(dataInput, datetime.datetime.now())
                     return {}, 208
                 else:
                     query = "SELECT noOfTries FROM card WHERE cardID = (SELECT cardID FROM accounts WHERE iban = %s);"
@@ -95,6 +122,7 @@ class CheckAttempts(Resource): # POST
         args = parser.parse_args()
         try:
             dataInput = str(args.get('IBAN'))
+            checkLoginTime(dataInput)
             query = "SELECT noOfTries FROM card WHERE cardID = (SELECT cardID FROM accounts WHERE iban = %s);"
             cursor.execute(query, dataInput)
             noOfTries = int(cursor.fetchone()[0])
@@ -114,6 +142,7 @@ class Withdraw(Resource): # POST
                 raise ValueError()
             
             dataInput = str(args.get('IBAN'))
+            checkLoginTime(dataInput)
 
             if isLoggedIn(dataInput):
                 query = "SELECT balance FROM accounts WHERE iban = %s;"
@@ -144,11 +173,12 @@ class CheckBalance(Resource): # POST
         args = parser.parse_args()
         try:
             dataInput = str(args.get('IBAN'))
+            checkLoginTime(dataInput)
 
             if isLoggedIn(dataInput):
                 query = "SELECT balance FROM accounts WHERE iban = %s;"
                 cursor.execute(query, dataInput)
-                amount = int(cursor.fetchone()[0])
+                amount = float(cursor.fetchone()[0])
                 return {'data': amount}, 208
             else :
                 return {'error': 'not logged in'}, 436
@@ -162,6 +192,7 @@ class Logout(Resource): # POST
         args = parser.parse_args()
         try:
             dataInput = str(args.get('IBAN'))
+            checkLoginTime(dataInput)
             query = "UPDATE accounts SET login = 0 WHERE iban = %s;"
             cursor.execute(query, dataInput)
             db.commit()
@@ -179,4 +210,4 @@ api.add_resource(CheckBalance, '/checkBalance')
 api.add_resource(Logout, '/logout')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port='8050', debug=True) 
+    app.run(host='0.0.0.0', port=8050, debug=True)
