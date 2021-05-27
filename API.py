@@ -144,7 +144,7 @@ class CheckBalance(Resource): # POST
         args = parser.parse_args()
         try:
             dataInput = str(args.get('IBAN'))
-            
+
             if isLoggedIn(dataInput):
                 query = "SELECT balance FROM accounts WHERE iban = %s;"
                 cursor.execute(query, dataInput)
