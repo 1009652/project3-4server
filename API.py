@@ -8,7 +8,7 @@ import datetime
 app = Flask(__name__)
 api = Api(app)
 
-db = MySQLdb.connect(host="remotemysql.com", user="5J9rC1RF8E", passwd="U8IIWXIJZT", db="5J9rC1RF8E")
+db = MySQLdb.connect(host='145.24.222.243', port=8051, user="primary", passwd="Timmerman123!", db="ABNMANBRO")
 
 cursor = db.cursor()
 
@@ -28,11 +28,11 @@ def checkLoginTime(key):
 
         if datetime.datetime.now() < logoutTime:
             addLoginTime(key, datetime.datetime.now())
-        #else:
-            #del loginTime[key]
-            #query = "UPDATE accounts SET login = 0 WHERE iban = %s;"
-            #cursor.execute(query, key)
-            #db.commit()
+        else:
+            del loginTime[key]
+            query = "UPDATE accounts SET login = 0 WHERE iban = %s;"
+            cursor.execute(query, key)
+            db.commit()
 
 
 
@@ -62,12 +62,13 @@ class CheckIfRegistered(Resource): # POST
                 if(isAccountValid(dataInput)):
                     return 'OK', 208
                 else :
-                    return 'account blocked', 434
+                    return 'Account blocked', 434
             else :
-                return 'account not registered', 433
+                return 'Account not registered', 433
 
-        except:
-            return {'error': 'json wrong'}, 432
+        except Exception as e:
+            print(e)
+            return 'Json wrong', 432
 
 class Login(Resource):
     def post(self):
@@ -92,7 +93,7 @@ class Login(Resource):
                     cursor.execute(query, dataInput)
                     db.commit()
                     addLoginTime(dataInput, datetime.datetime.now())
-                    return {}, 208
+                    return 'OK', 208
                 else:
                     query = "SELECT noOfTries FROM card WHERE cardID = (SELECT cardID FROM accounts WHERE iban = %s);"
                     cursor.execute(query, dataInput)
@@ -104,16 +105,17 @@ class Login(Resource):
                         query = "UPDATE card SET noOfTries = %s, valid = 0 WHERE cardID = (SELECT cardID FROM accounts WHERE iban = %s);"
                         cursor.execute(query, dataInputTuple)
                         db.commit()
-                        return {'error': 'account blocked'}, 434
+                        return 'Account blocked', 434
                     else :
                         query = "UPDATE card SET noOfTries = %s WHERE cardID = (SELECT cardID FROM accounts WHERE iban = %s);"
                         cursor.execute(query, dataInputTuple)
                         db.commit()
-                        return {'error': 'pincode wrong'}, 435
+                        return 'Pincode wrong', 435
             else :
-                return {'error': 'account blocked'}, 434
-        except:
-            return {'error': 'json wrong'}, 432
+                return 'Account blocked', 434
+        except Exception as e:
+            print(e)
+            return 'Json wrong', 432
 
 class CheckAttempts(Resource): # POST
     def post(self):
@@ -127,9 +129,10 @@ class CheckAttempts(Resource): # POST
             cursor.execute(query, dataInput)
             noOfTries = int(cursor.fetchone()[0])
             triesLeft = 3 - noOfTries
-            return {'data': triesLeft}, 208
-        except:
-            return {'error': 'json wrong'}, 432 # Bad request
+            return triesLeft, 208
+        except Exception as e:
+            print(e)
+            return 'Json wrong', 432 # Bad request
 
 class Withdraw(Resource): # POST
     def post(self):
@@ -151,7 +154,7 @@ class Withdraw(Resource): # POST
                 newAmount = oldAmount - int(args.get('amount'))
 
                 if newAmount < 0:
-                    return {'error': 'balance too low'}, 437
+                    return 'Balance too low', 437
 
                 
                 query = "UPDATE accounts SET balance = %s WHERE iban = %s;"
@@ -160,10 +163,11 @@ class Withdraw(Resource): # POST
                 db.commit()
                 return {}, 208
             else:
-                return {'error': 'not logged in'}, 436
+                return 'Not logged in', 436
             
-        except:
-            return {'error': 'json wrong'}, 432 # Bad request
+        except Exception as e:
+            print(e)
+            return 'Json wrong', 432 # Bad request
 
     
 class CheckBalance(Resource): # POST
@@ -179,11 +183,12 @@ class CheckBalance(Resource): # POST
                 query = "SELECT balance FROM accounts WHERE iban = %s;"
                 cursor.execute(query, dataInput)
                 amount = float(cursor.fetchone()[0])
-                return {'data': amount}, 208
+                return amount, 208
             else :
-                return {'error': 'not logged in'}, 436
-        except:
-            return {'error': 'json wrong'}, 432 # Bad request
+                return 'Not logged in', 436
+        except Exception as e:
+            print(e)
+            return 'Json wrong', 432 # Bad request
 
 class Logout(Resource): # POST
     def post(self):
@@ -196,9 +201,10 @@ class Logout(Resource): # POST
             query = "UPDATE accounts SET login = 0 WHERE iban = %s;"
             cursor.execute(query, dataInput)
             db.commit()
-            return {}, 208
-        except:
-            return {'error': 'json wrong'}, 432 # Bad request
+            return 'OK', 208
+        except Exception as e:
+            print(e)
+            return 'Json wrong', 432 # Bad request
 
 
 
@@ -210,4 +216,4 @@ api.add_resource(CheckBalance, '/checkBalance')
 api.add_resource(Logout, '/logout')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host = '0.0.0.0', port=8050, debug=True)
